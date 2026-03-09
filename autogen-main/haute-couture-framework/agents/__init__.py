@@ -9,6 +9,7 @@ from .creative_director import create_creative_director_agent
 from .art_director import create_art_director_agent
 from .fashion_critic import create_fashion_critic_agent
 from .refinement_strategist import create_refinement_strategist_agent
+from .generative_executor import create_generative_executor_agent
 
 __all__ = [
     "create_fashion_designer_agent",
@@ -17,4 +18,5 @@ __all__ = [
     "create_art_director_agent",
     "create_fashion_critic_agent",
     "create_refinement_strategist_agent",
+    "create_generative_executor_agent",
 ]

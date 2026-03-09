@@ -1,22 +1,20 @@
 # 高奢服装框架依赖
-# 基于AutoGen框架
+# 基于AutoGen框架 + 阿里云DashScope
 
 # AutoGen核心包
 autogen-agentchat>=0.4.0
 autogen-core>=0.4.0
+autogen-ext>=0.4.0
 
-# 模型支持
-openai>=1.0.0
-autogen-ext[openai]>=0.4.0
+# 阿里云DashScope（通义千问+通义万相）
+dashscope>=1.14.0
+
+# HTTP请求
+requests>=2.31.0
 
 # 工具和环境
 python-dotenv>=1.0.0
 pydantic>=2.0.0
 
-# 可选：图像生成（如果需要本地生成）
-# diffusers>=0.25.0
-# torch>=2.0.0
-# pillow>=10.0.0
-
-# 可选：多模态支持
-# transformers>=4.35.0
+# 数据处理
+numpy>=1.24.0
