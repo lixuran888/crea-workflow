@@ -71,7 +71,7 @@ class HauteCoutureWorkflow:
     
     async def run(self, user_input: str, target_count: int = 3, generation_count: int = 5) -> Dict[str, Any]:
         """
-        运行完整工作流
+        运行完整工作流（AI代选模式）
         
         Args:
             user_input: 用户设计需求
@@ -88,7 +88,7 @@ class HauteCoutureWorkflow:
         )
         
         print("=" * 60)
-        print("开始高奢服装设计工作流")
+        print("开始高奢服装设计工作流 (AI代选模式)")
         print("=" * 60)
         print(f"用户需求: {user_input}")
         print(f"目标输出: {target_count}张")
@@ -121,6 +121,139 @@ class HauteCoutureWorkflow:
             self.state.iteration_count += 1
         
         return self._get_result()
+    
+    async def run_for_user_selection(self, user_input: str, generation_count: int = 5) -> Dict[str, Any]:
+        """
+        运行用户自选模式工作流（只生成和评分，不筛选）
+        
+        Args:
+            user_input: 用户设计需求
+            generation_count: 生成的图片数量
+            
+        Returns:
+            包含所有生成图片和评分的字典
+        """
+        self.state = WorkflowState(
+            user_input=user_input,
+            target_count=generation_count,  # 用户自选时，target=generation
+            generation_count=generation_count
+        )
+        
+        print("=" * 60)
+        print("开始高奢服装设计工作流 (用户自选模式)")
+        print("=" * 60)
+        print(f"用户需求: {user_input}")
+        print(f"生成数量: {generation_count}张")
+        print("模式: 生成所有图片，由用户在前端选择")
+        print()
+        
+        # 阶段1：创意策划（循环直到三方通过）
+        await self._phase1_creative_planning()
+        
+        # 阶段2：图像生成（只执行一次，不迭代）
+        await self._phase2_image_generation()
+        
+        # 阶段3：评估所有图片（13维度评分）
+        await self._phase3_evaluation_for_user_selection()
+        
+        return self._get_result_for_user_selection()
+    
+    async def _phase3_evaluation_for_user_selection(self):
+        """阶段3（用户自选版）：评估所有图片，返回评分但不筛选"""
+        print("\n" + "="*60)
+        print("阶段3: 13维度评分 (用户自选模式)")
+        print("="*60)
+        
+        evaluations = []
+        
+        # 对每张图进行13维度评分
+        for i, img in enumerate(self.state.generated_images, 1):
+            print(f"\n[{i}/{len(self.state.generated_images)}] 评估 {img['id']}...")
+            
+            # 艺术总监评分：6项美学原则
+            print("  [1/2] 艺术总监评估6项美学原则...")
+            art_input = f"""请对服装设计图进行6项美学创造力原则评分。
+
+图像ID: {img['id']}
+生成Prompt: {img['prompt']}
+
+6项美学原则：
+1. Originality (原创性)
+2. Expressiveness (表现力)
+3. Aesthetic Appeal (审美吸引力)
+4. Technical Execution (技术执行)
+5. Unexpected Associations (意外关联)
+6. Interpretability & Depth (可解释性与深度)
+
+请输出JSON格式评分。"""
+            
+            art_response = await self._chat_agent(self.art_director, art_input)
+            
+            # 服装设计师评分：7项服装原则
+            print("  [2/2] 服装设计师评估7项服装原则...")
+            fashion_input = f"""请对服装设计图进行7项服装专业原则评分。
+
+图像ID: {img['id']}
+生成Prompt: {img['prompt']}
+
+7项服装专业原则：
+1. Silhouette & Structure (款式与廓形)
+2. Color & Pattern (色彩与图案)
+3. Fabric & Texture (面料与肌理)
+4. Craftsmanship & Construction (工艺与结构)
+5. Creativity & Theme (创意与主题)
+6. Market & Commercial (市场与商业)
+7. Overall & Collection (整体与系列)
+
+请输出JSON格式评分。"""
+            
+            fashion_response = await self._chat_agent(self.fashion_designer, fashion_input)
+            
+            # 解析13维度评分
+            evaluation = evaluate_13_dimensions(
+                image_id=img['id'],
+                prompt=img['prompt'],
+                aesthetic_response=art_response,
+                fashion_response=fashion_response
+            )
+            
+            evaluations.append(evaluation)
+            
+            print(f"  美学6项: {evaluation.aesthetic_score:.2f}/30")
+            print(f"  服装7项: {evaluation.fashion_score:.2f}/35")
+            print(f"  CI总分: {evaluation.ci_score:.2f}/65")
+            print(f"  状态: {'✓ 达标' if evaluation.passed else '⚠ 未达标'}")
+        
+        self.state.evaluations = evaluations
+        print(f"\n✓ 所有 {len(evaluations)} 张图片评分完成")
+    
+    def _get_result_for_user_selection(self) -> Dict[str, Any]:
+        """获取用户自选模式的结果"""
+        return {
+            "user_input": self.state.user_input,
+            "generation_count": self.state.generation_count,
+            "generated_images": self.state.generated_images,
+            "evaluations": [
+                {
+                    "image_id": e.image_id,
+                    "ci_score": e.ci_score,
+                    "aesthetic_score": e.aesthetic_score,
+                    "fashion_score": e.fashion_score,
+                    "passed": e.passed,
+                    "low_dimensions": e.low_dimensions,
+                    "aesthetic_dimensions": [
+                        {"name": d.name, "score": d.normalized_score}
+                        for d in e.aesthetic_dimensions
+                    ],
+                    "fashion_dimensions": [
+                        {"name": d.name, "score": d.normalized_score}
+                        for d in e.fashion_dimensions
+                    ],
+                }
+                for e in self.state.evaluations
+            ],
+            "final_prompt": self.state.selected_prompt,
+        }
     
     async def _phase1_creative_planning(self):
         """阶段1：创意策划层 - 三方会审循环"""
