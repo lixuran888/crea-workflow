@@ -114,8 +114,9 @@ async def main():
             eval_data = next((e for e in result['evaluations'] if e['image_id'] == img_id), None)
             if eval_data:
                 print(f"  {i}. {img_id}")
-                print(f"     CI得分: {eval_data['ci_score']:.2f}")
-                print(f"     7维度: {[f\"{d['name']}:{d['score']:.1f}\" for d in eval_data['dimensions'][:3]]}...")
+                print(f"     CI总分: {eval_data['ci_score']:.2f}/65")
+                print(f"     美学6项: {eval_data.get('aesthetic_score', 0):.2f}/30")
+                print(f"     服装7项: {eval_data.get('fashion_score', 0):.2f}/35")
         
         print()
         print("最终Prompt:")

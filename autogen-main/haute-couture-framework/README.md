@@ -19,14 +19,24 @@
   - 优化策略师（自增强+权重计算）
   - 生成执行器（图像生成工具调用）
 
-- **7维度专业评分**：
-  1. 款式与廓形（Silhouette & Structure）
-  2. 色彩与图案（Color & Pattern）
-  3. 面料与肌理（Fabric & Texture）
-  4. 工艺与结构（Craftsmanship & Construction）
-  5. 创意与主题（Creativity & Theme）
-  6. 市场与商业（Market & Commercial）
-  7. 整体与系列（Overall & Collection）
+- **13维度专业评分**：
+  
+  **6项美学创造力原则**（艺术总监负责）：
+  1. Originality (原创性) - Boden创造力理论
+  2. Expressiveness (表现力) - Amabile模型
+  3. Aesthetic Appeal (审美吸引力) - Martindale美学模型
+  4. Technical Execution (技术执行) - AI创造力框架
+  5. Unexpected Associations (意外关联) - Geneplore模型
+  6. Interpretability & Depth (可解释性与深度) - Ramachandran法则
+  
+  **7项服装专业原则**（服装设计师负责）：
+  7. Silhouette & Structure (款式与廓形)
+  8. Color & Pattern (色彩与图案)
+  9. Fabric & Texture (面料与肌理)
+  10. Craftsmanship & Construction (工艺与结构)
+  11. Creativity & Theme (创意与主题)
+  12. Market & Commercial (市场与商业)
+  13. Overall & Collection (整体与系列)
 
 - **7n+a提示策略**：论文+专业知识驱动的prompt生成
 - **自增强优化**：基于α和βₖ权重的迭代优化
@@ -119,10 +129,13 @@ haute-couture-framework/
 
 ### CI计算（综合创新指数）
 ```
-CI = ΣSi (i∈[1,7])
+CI = ΣSi (i∈[1,13])
 
-满分：35分（每项5分）
-目标阈值：28分（每项平均4分）
+满分：65分（每项5分）
+- 美学6项：30分
+- 服装7项：35分
+
+目标阈值：52分（每项平均4分）
 单项最低：4分
 ```
 

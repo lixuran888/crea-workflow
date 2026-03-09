@@ -24,7 +24,7 @@ from ..agents import (
     create_refinement_strategist_agent,
     create_generative_executor_agent,
 )
-from ..tools import generate_images, evaluate_7_dimensions, calculate_ci_score
+from ..tools import generate_images, evaluate_13_dimensions, calculate_ci_score_13
 
 
 @dataclass
@@ -260,51 +260,96 @@ class HauteCoutureWorkflow:
             print(f"✓ 使用模拟数据继续")
     
     async def _phase3_evaluation(self):
-        """阶段3：评估筛选层"""
+        """阶段3：评估筛选层 - 13维度评分（6美学+7服装）"""
         print("\n" + "="*60)
-        print("阶段3: 评估筛选")
+        print("阶段3: 评估筛选 (13维度)")
         print("="*60)
         
         evaluations = []
         
-        # 对每张图进行7维度评分
+        # 对每张图进行13维度评分
         for i, img in enumerate(self.state.generated_images, 1):
             print(f"\n[{i}/{len(self.state.generated_images)}] 评估 {img['id']}...")
             
-            critic_input = f"""请对服装设计图进行7维度专业评分。
+            # 艺术总监评分：6项美学原则
+            print("  [1/2] 艺术总监评估6项美学原则...")
+            art_input = f"""请对服装设计图进行6项美学创造力原则评分。
 
 图像ID: {img['id']}
 生成Prompt: {img['prompt']}
 
-请输出JSON格式评分：
+6项美学原则：
+1. Originality (原创性) - Boden创造力理论
+2. Expressiveness (表现力) - Amabile模型
+3. Aesthetic Appeal (审美吸引力) - Martindale美学模型
+4. Technical Execution (技术执行) - AI创造力框架
+5. Unexpected Associations (意外关联) - Geneplore模型
+6. Interpretability & Depth (可解释性与深度) - Ramachandran法则
+
+请输出JSON格式：
 {{
   "scores": {{
-    "款式与廓形": {{"raw": 12, "comment": "评价"}},
-    "色彩与图案": {{"raw": 16, "comment": "评价"}},
-    "面料与肌理": {{"raw": 12, "comment": "评价"}},
-    "工艺与结构": {{"raw": 15, "comment": "评价"}},
-    "创意与主题": {{"raw": 17, "comment": "评价"}},
-    "市场与商业": {{"raw": 15, "comment": "评价"}},
-    "整体与系列": {{"raw": 16, "comment": "评价"}}
-  }},
-  "ci_score": 28.5
+    "Originality": {{"raw": 16, "comment": "评价"}},
+    "Expressiveness": {{"raw": 17, "comment": "评价"}},
+    "Aesthetic Appeal": {{"raw": 18, "comment": "评价"}},
+    "Technical Execution": {{"raw": 15, "comment": "评价"}},
+    "Unexpected Associations": {{"raw": 16, "comment": "评价"}},
+    "Interpretability & Depth": {{"raw": 17, "comment": "评价"}}
+  }}
 }}"""
             
-            critic_response = await self._chat_agent(
-                self.fashion_critic,
-                critic_input
+            art_response = await self._chat_agent(
+                self.art_director,
+                art_input
             )
             
-            # 解析评分
-            evaluation = evaluate_7_dimensions(
+            # 服装设计师评分：7项服装原则
+            print("  [2/2] 服装设计师评估7项服装原则...")
+            fashion_input = f"""请对服装设计图进行7项服装专业原则评分。
+
+图像ID: {img['id']}
+生成Prompt: {img['prompt']}
+
+7项服装专业原则：
+1. Silhouette & Structure (款式与廓形)
+2. Color & Pattern (色彩与图案)
+3. Fabric & Texture (面料与肌理)
+4. Craftsmanship & Construction (工艺与结构)
+5. Creativity & Theme (创意与主题)
+6. Market & Commercial (市场与商业)
+7. Overall & Collection (整体与系列)
+
+请输出JSON格式：
+{{
+  "scores": {{
+    "Silhouette & Structure": {{"raw": 12, "comment": "评价"}},
+    "Color & Pattern": {{"raw": 16, "comment": "评价"}},
+    "Fabric & Texture": {{"raw": 12, "comment": "评价"}},
+    "Craftsmanship & Construction": {{"raw": 15, "comment": "评价"}},
+    "Creativity & Theme": {{"raw": 17, "comment": "评价"}},
+    "Market & Commercial": {{"raw": 15, "comment": "评价"}},
+    "Overall & Collection": {{"raw": 16, "comment": "评价"}}
+  }}
+}}"""
+            
+            fashion_response = await self._chat_agent(
+                self.fashion_designer,
+                fashion_input
+            )
+            
+            # 解析13维度评分
+            evaluation = evaluate_13_dimensions(
                 image_id=img['id'],
                 prompt=img['prompt'],
-                llm_response=critic_response
+                aesthetic_response=art_response,
+                fashion_response=fashion_response
             )
             
             evaluations.append(evaluation)
             
-            print(f"  CI得分: {evaluation.ci_score:.2f}")
+            print(f"  美学6项: {evaluation.aesthetic_score:.2f}/30")
+            print(f"  服装7项: {evaluation.fashion_score:.2f}/35")
+            print(f"  CI总分: {evaluation.ci_score:.2f}/65")
             print(f"  低分项: {', '.join(evaluation.low_dimensions) if evaluation.low_dimensions else '无'}")
             print(f"  状态: {'✓ 通过' if evaluation.passed else '✗ 需优化'}")
         
@@ -315,7 +360,7 @@ class HauteCoutureWorkflow:
         sorted_evals = sorted(evaluations, key=lambda x: x.ci_score, reverse=True)
         top_m = sorted_evals[:self.state.target_count]
         
-        # 检查是否全部通过
+        # 检查是否全部通过（CI >= 52）
         all_passed = all(e.passed for e in top_m)
         
         if all_passed:
@@ -329,12 +374,12 @@ class HauteCoutureWorkflow:
             print(f"\n✗ {failed_count} 张未达标，进入自增强优化")
     
     async def _phase4_self_enhancement(self):
-        """阶段4：自增强层"""
+        """阶段4：自增强层 - 13维度优化"""
         print("\n" + "="*60)
-        print("阶段4: 自增强优化")
+        print("阶段4: 自增强优化 (13维度)")
         print("="*60)
         
-        # 找出CI<28的图像
+        # 找出CI<52的图像
         low_ci_evals = [e for e in self.state.evaluations if not e.passed]
         
         if not low_ci_evals:
@@ -345,14 +390,16 @@ class HauteCoutureWorkflow:
         worst_eval = min(low_ci_evals, key=lambda x: x.ci_score)
         
         print(f"\n优化目标: {worst_eval.image_id}")
-        print(f"当前CI: {worst_eval.ci_score:.2f}")
-        print(f"目标CI: 28.0")
+        print(f"当前CI: {worst_eval.ci_score:.2f}/65")
+        print(f"目标CI: 52.0")
+        print(f"美学6项: {worst_eval.aesthetic_score:.2f}/30")
+        print(f"服装7项: {worst_eval.fashion_score:.2f}/35")
         print(f"低分项: {', '.join(worst_eval.low_dimensions)}")
         
-        # 计算优化参数
-        alpha = (28 - worst_eval.ci_score) / 28
+        # 计算优化参数（目标CI=52）
+        alpha = (52 - worst_eval.ci_score) / 52
         
-        # 简化β计算（实际应该根据用户输入长度）
+        # β计算
         gamma = 0.8
         L = len(self.state.user_input)
         L_max = 100
@@ -364,11 +411,23 @@ class HauteCoutureWorkflow:
         print(f"  α (规则权重): {alpha:.3f}")
         print(f"  β_k (用户权重): {beta_k:.3f}")
         
+        # 分类低分项
+        aesthetic_low = [d for d in worst_eval.low_dimensions if d in 
+                        ['Originality', 'Expressiveness', 'Aesthetic Appeal', 
+                         'Technical Execution', 'Unexpected Associations', 'Interpretability & Depth']]
+        fashion_low = [d for d in worst_eval.low_dimensions if d not in aesthetic_low]
+        
         # 优化策略师制定策略
         strategist_input = f"""优化分析：
 图像: {worst_eval.image_id}
-当前CI: {worst_eval.ci_score:.2f}
-低分项: {', '.join(worst_eval.low_dimensions)}
+当前CI: {worst_eval.ci_score:.2f} (目标: 52)
+美学6项: {worst_eval.aesthetic_score:.2f}
+服装7项: {worst_eval.fashion_score:.2f}
+
+美学低分项: {', '.join(aesthetic_low) if aesthetic_low else '无'}
+服装低分项: {', '.join(fashion_low) if fashion_low else '无'}
+
+优化参数:
 α: {alpha:.3f}
 β_k: {beta_k:.3f}
 
@@ -386,7 +445,8 @@ class HauteCoutureWorkflow:
 
 优化策略: {strategy_response}
 
-低分项: {', '.join(worst_eval.low_dimensions)}
+美学低分项: {', '.join(aesthetic_low) if aesthetic_low else '无'}
+服装低分项: {', '.join(fashion_low) if fashion_low else '无'}
 
 请根据优化策略更新prompt，重点改进低分项。"""
         
@@ -450,12 +510,18 @@ class HauteCoutureWorkflow:
                 {
                     "image_id": e.image_id,
                     "ci_score": e.ci_score,
+                    "aesthetic_score": e.aesthetic_score,
+                    "fashion_score": e.fashion_score,
                     "passed": e.passed,
                     "low_dimensions": e.low_dimensions,
-                    "dimensions": [
+                    "aesthetic_dimensions": [
                         {"name": d.name, "score": d.normalized_score}
-                        for d in e.dimensions
-                    ]
+                        for d in e.aesthetic_dimensions
+                    ],
+                    "fashion_dimensions": [
+                        {"name": d.name, "score": d.normalized_score}
+                        for d in e.fashion_dimensions
+                    ],
                 }
                 for e in self.state.evaluations
             ],
